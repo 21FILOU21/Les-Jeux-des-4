@@ -163,6 +163,18 @@ function getAnimalDisplayImagePath(instance, definition = null) {
     return getAnimalImagePath(resolved, instance?.Shiny === true);
 }
 
+function bindAnimalImageFallback(img, definition, shiny) {
+    if (!img || !shiny || !definition) return;
+    img.addEventListener("error", () => {
+        if (img.dataset.shinyFallbackApplied === "true") return;
+        const fallback = getAnimalImagePath(definition, false);
+        if (!fallback || fallback === img.src) return;
+        img.dataset.shinyFallbackApplied = "true";
+        img.src = fallback;
+        console.warn("Image Shiny animale invalide, fallback vers l'image normale :", fallback);
+    });
+}
+
 function getAnimalShinyDenominator() {
     const configured = Number(gameSettings?.combat?.shinyChanceDenominator);
     return Math.max(1, Math.min(4096, Number.isFinite(configured) ? Math.floor(configured) : ANIMAL_DEFAULT_SHINY_CHANCE));
@@ -650,6 +662,8 @@ function renderAnimalBattleSlots() {
                 '<div class="resource-bar xp-bar animal-xp-block"><div class="resource-fill" style="width:' + Math.min(100, ((Math.max(0, Number(instance.XP) || 0) / animalXpRequired(instance.Niveau)) * 100)).toFixed(1) + '%"></div></div>' +
                 '</div>';
 
+            bindAnimalImageFallback(slot.querySelector(".animal-slot-image img"), definition, instance.Shiny === true);
+
             slot.addEventListener("click", () => {
                 state.selectedAnimalId = instance.Id;
                 renderAnimalBattleSlots();
@@ -724,6 +738,8 @@ function renderCreaturesMenu() {
             '<span class="creature-card-text"><strong>' + escapeHtml(definition.Nom) + '</strong>' +
             '<small>' + escapeHtml(definition.Rarete) + ' · Niveau ' + escapeHtml(String(instance.Niveau)) + '</small></span>';
 
+        bindAnimalImageFallback(button.querySelector("img"), definition, instance.Shiny === true);
+
         button.addEventListener("click", () => {
             state.selectedAnimalId = instance.Id;
             renderAnimalBattleSlots();
@@ -757,6 +773,8 @@ function renderCreaturesMenu() {
         '</div>' +
         (buff.Type ? '<div class="creature-ability"><h4>Buff</h4><p>' + escapeHtml(buff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "buff"))) + ' · ' + escapeHtml(String(buff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(buff.Activation) + ' · Chance : ' + escapeHtml(String(buff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(buff.Cooldown)) + ' · Stackable : ' + (buff.Stackable ? "Oui" : "Non") + '</p></div>' : '') +
         (debuff.Type ? '<div class="creature-ability"><h4>Debuff</h4><p>' + escapeHtml(debuff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "debuff"))) + ' · ' + escapeHtml(String(debuff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(debuff.Activation) + ' · Chance : ' + escapeHtml(String(debuff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(debuff.Cooldown)) + ' · Stackable : ' + (debuff.Stackable ? "Oui" : "Non") + '</p></div>' : '');
+
+    bindAnimalImageFallback(details.querySelector(".creature-detail-head img"), definition, selected.Shiny === true);
 }
 
 function applyAnimalEvolutionIfReady(instance) {
