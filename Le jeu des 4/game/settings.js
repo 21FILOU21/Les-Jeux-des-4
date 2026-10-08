@@ -643,6 +643,12 @@ function openSettingsMenu() {
 
     if (popupSkipCheckbox) popupSkipCheckbox.checked = isPopupSkipAllowed();
 
+    const shinyChanceSlider = $("#setting-shiny-chance");
+    const shinyChanceValue = $("#setting-shiny-chance-value");
+    const shinyChance = Math.max(1, Math.min(4096, Math.floor(Number(gameSettings?.combat?.shinyChanceDenominator) || 4096)));
+    if (shinyChanceSlider) shinyChanceSlider.value = String(shinyChance);
+    if (shinyChanceValue) shinyChanceValue.textContent = "1/" + shinyChance;
+
     keybindCaptureAction = null;
 
     keybindCaptureSlot = - 1;
