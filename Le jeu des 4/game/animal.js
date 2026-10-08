@@ -83,7 +83,10 @@ function normalizeAnimalDefinition(animal) {
     out.Description = String(out.Description || "");
     out.Image = String(out.Image || "").trim();
     out.ImageShiny = String(out.ImageShiny || "").trim();
-    out.AUneImageShiny = out.AUneImageShiny === true && !!out.ImageShiny;
+    const shinyConfigured = out.AUneImageShiny === true;
+    if (shinyConfigured && !out.ImageShiny) console.warn("Animal Shiny configuré sans ImageShiny :", out.Nom || out.Id);
+    if (out.ImageShiny && !/^(?:data:image\/(?:png|jpeg|jpg);|.*\.(?:png|jpe?g)(?:$|\?))/i.test(out.ImageShiny)) console.warn("ImageShiny animale potentiellement invalide :", out.ImageShiny);
+    out.AUneImageShiny = shinyConfigured && !!out.ImageShiny;
     out.TypeEnergie2 = String(out.TypeEnergie2 || "").trim();
     out.Attaques = Array.from(new Set((Array.isArray(out.Attaques) ? out.Attaques : []).map(value => String(value || "").trim()).filter(Boolean))).slice(0, 4);
     out.Evolution = out.Evolution && typeof out.Evolution === "object" ? { Cible: String(out.Evolution.Cible || "").trim(), NiveauRequis: Math.max(1, Math.floor(Number(out.Evolution.NiveauRequis) || 16)) } : null;
