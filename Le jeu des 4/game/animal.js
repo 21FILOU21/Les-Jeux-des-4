@@ -255,7 +255,9 @@ function applyAnimalXp(instance, amount) {
     normalizeAnimalProgression(instance);
     if (value <= 0) return 0;
     instance.XP += value;
-    return normalizeAnimalProgression(instance);
+    const levelsGained = normalizeAnimalProgression(instance);
+    applyAnimalEvolutionIfReady(instance);
+    return levelsGained;
 }
 
 function ensureAnimalCollection() {
@@ -755,6 +757,76 @@ function renderCreaturesMenu() {
         '</div>' +
         (buff.Type ? '<div class="creature-ability"><h4>Buff</h4><p>' + escapeHtml(buff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "buff"))) + ' · ' + escapeHtml(String(buff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(buff.Activation) + ' · Chance : ' + escapeHtml(String(buff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(buff.Cooldown)) + ' · Stackable : ' + (buff.Stackable ? "Oui" : "Non") + '</p></div>' : '') +
         (debuff.Type ? '<div class="creature-ability"><h4>Debuff</h4><p>' + escapeHtml(debuff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "debuff"))) + ' · ' + escapeHtml(String(debuff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(debuff.Activation) + ' · Chance : ' + escapeHtml(String(debuff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(debuff.Cooldown)) + ' · Stackable : ' + (debuff.Stackable ? "Oui" : "Non") + '</p></div>' : '');
+}
+
+function applyAnimalEvolutionIfReady(instance) {
+    const definition = getCapturedAnimalDefinition(instance);
+    const evolution = definition?.Evolution;
+    if (!instance || !evolution?.Cible || instance._evolutionApplied) return false;
+    if (instance.Niveau < evolution.NiveauRequis) return false;
+
+    const target = getAnimalDefinition(evolution.Cible);
+    if (!target || target.Id === definition.Id) return false;
+
+    instance.AnimalId = target.Id;
+    instance.AnimalNom = target.Nom;
+    instance._evolutionApplied = true;
+
+    addLog("✨ " + definition.Nom + " évolue en " + target.Nom + " !", "reward");
+    showToast("Évolution !", definition.Nom + " devient " + target.Nom + ".");
+    renderAnimalBattleSlots();
+    if (typeof updateBattleUI === "function") updateBattleUI();
+
+    delete instance._evolutionApplied;
+    return true;
+}
+
+function getSelectedCapturedAnimal() {
+    const animals = getCapturedAnimals();
+    return animals.find(instance => String(instance.Id) === String(state.selectedAnimalId)) || animals[0] || null;
+}
+
+function getAnimalMegaEvolutionConfig(instance) {
+    const definition = getCapturedAnimalDefinition(instance);
+    const config = definition?.MegaEvolution;
+    if (!config?.Cible || !config?.ItemId) return null;
+    return { Cible: config.Cible, ItemId: config.ItemId };
+}
+
+function canAnimalMegaEvolve(item) {
+    const instance = getSelectedCapturedAnimal();
+    if (!instance) return { ok: false, reason: "Aucun animal sélectionné." };
+
+    const config = getAnimalMegaEvolutionConfig(instance);
+    if (!config) return { ok: false, reason: "Cet animal n'a pas de Méga-Évolution configurée." };
+    if (String(config.ItemId) !== String(item?.Id)) return { ok: false, reason: "Cet item n'est pas compatible avec l'animal sélectionné." };
+
+    const target = getAnimalDefinition(config.Cible);
+    if (!target) return { ok: false, reason: "La forme Méga cible est introuvable." };
+    if (target.Id === instance.AnimalId) return { ok: false, reason: "La forme Méga doit être différente de la forme actuelle." };
+
+    return { ok: true, instance, target };
+}
+
+function activateAnimalMegaEvolution(item) {
+    const validation = canAnimalMegaEvolve(item);
+    if (!validation.ok) return validation;
+
+    const { instance, target } = validation;
+    const previous = getCapturedAnimalDefinition(instance);
+    instance.AnimalId = target.Id;
+    instance.AnimalNom = target.Nom;
+
+    if (Array.isArray(state.battleAnimals)) {
+        state.battleAnimals = createBattleAnimalTeam();
+    }
+
+    updateSaveMemory();
+    renderAnimalBattleSlots();
+    if (typeof updateBattleUI === "function") updateBattleUI();
+    addLog("✨ " + previous.Nom + " devient " + target.Nom + " !", "reward");
+    showToast("Méga-Évolution !", previous.Nom + " devient " + target.Nom + ".");
+    return { ok: true, instance, target };
 }
 
 async function animateAnimalXpGain(amount, animalId = null) {
