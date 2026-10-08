@@ -122,7 +122,8 @@ async function copyDevImageToAssets(file, subfolder, nom) {
         });
 
         const extension = file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name) ? "jpg" : "png";
-        const fileHandle = await targetDir.getFileHandle(nom + "." + extension, {
+        const safeName = normalizeCreatorImageFilename(nom);
+        const fileHandle = await targetDir.getFileHandle(safeName + "." + extension, {
             create: !0
         });
 
@@ -134,7 +135,6 @@ async function copyDevImageToAssets(file, subfolder, nom) {
             await writable.close();
         }
 
-        const safeName = normalizeCreatorImageFilename(nom);
         return "assets/" + subfolder + "/" + safeName + "." + extension;
     } catch (error) {
         console.error("Copie de l'image vers assets impossible :", error);
