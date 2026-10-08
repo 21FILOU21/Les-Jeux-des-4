@@ -594,8 +594,20 @@ function getMonsterPanel(monster) {
 
 function pickMonsterAttackName(monster) {
     const list = Array.isArray(monster.attacks) ? monster.attacks : [];
-
     if (list.length === 0) return null;
+
+    if (monster.isAnimal) {
+        const affordable = list.filter(name => {
+            const attack = getMonsterAttackData(name);
+            if (!attack) return false;
+            const cost = Math.max(0, Number(attack.CoutEnergie) || 0);
+            const attackTypes = getAttackEnergyTypes(attack);
+            return cost <= Math.max(0, Number(monster.energy) || 0) &&
+                (attackTypes.length === 0 || attackTypes.some(type => getMonsterEnergyTypes(monster).includes(type)));
+        });
+        if (affordable.length === 0) return null;
+        return affordable[randomInt(0, affordable.length - 1)];
+    }
 
     return list[randomInt(0, list.length - 1)];
 }
@@ -709,6 +721,12 @@ async function monsterAttack(monster) {
 
     await showBattlePopup(attackName ? `${monster.name} #${monster.number} utilise ${attackName} !` : `${monster.name} #${monster.number} attaque !`, effectivenessText, effectivenessClass);
 
+    if (monster.isAnimal && attackData) {
+        const cost = Math.max(0, Number(attackData.CoutEnergie) || 0);
+        monster.energy = Math.max(0, (Number(monster.energy) || 0) - cost);
+        addLog(monster.name + " dépense " + cost + " énergie.", "system");
+    }
+
     const effects = (attackData && Array.isArray(attackData.Effets)) ? attackData.Effets : [];
 
     const damageEffects = effects.filter(effect => normalizeEffectType(effect.Type) === "degats");
@@ -718,11 +736,14 @@ async function monsterAttack(monster) {
     let otherEffectsApplied = !1;
 
     const wheels = getMonsterWheels(monster);
+    const maxCoups = Number.isInteger(attackData?.NombreMaxCoups) && attackData.NombreMaxCoups > 0
+        ? Math.min(wheels.length, attackData.NombreMaxCoups)
+        : wheels.length;
 
     state._currentAttack = attackData;
     state._currentAttackerMonster = monster;
 
-    for (let i = 0; i < wheels.length; i++) {
+    for (let i = 0; i < maxCoups; i++) {
         if (state.battleOver) {
             return;
         }
