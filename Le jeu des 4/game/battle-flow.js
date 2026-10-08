@@ -385,6 +385,17 @@ function bindEvents() {
 
                 saveGameSettings();
             }
+        ],
+        [
+            "#setting-shiny-chance",
+            "input",
+            (event) => {
+                const value = Math.max(1, Math.min(4096, Math.floor(Number(event.target.value) || 4096)));
+                gameSettings.combat.shinyChanceDenominator = value;
+                const label = $("#setting-shiny-chance-value");
+                if (label) label.textContent = "1/" + value;
+                saveGameSettings();
+            }
         ]
     ];
 
