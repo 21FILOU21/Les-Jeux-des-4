@@ -157,10 +157,18 @@ function ensureMonsterImage(panel, monster) {
     img.dataset.monsterName = monster.name;
 
     img.onerror = () => {
+        if (monster.isAnimal && monster.Shiny && typeof getAnimalImagePath === "function" && !img.dataset.shinyFallbackApplied) {
+            const fallback = getAnimalImagePath(monster.animalDefinition, false);
+            if (fallback && fallback !== img.src) {
+                img.dataset.shinyFallbackApplied = "true";
+                img.src = fallback;
+                console.warn("Image Shiny animale introuvable, fallback vers l'image normale :", fallback);
+                return;
+            }
+        }
+
         monsterImageFailures.add(monster.name);
-
         img.style.display = "none";
-
         console.warn(`Image du monstre introuvable : ${getMonsterImagePath(monster)}`);
     };
 
