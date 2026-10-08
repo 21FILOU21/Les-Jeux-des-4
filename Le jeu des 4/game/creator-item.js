@@ -38,7 +38,7 @@ function startItemCreator(existing) {
 
     const isEdit = Boolean(existing);
     const item = existing || {};
-    const categories = ["Soin", "Combat", "Attraper", "Nourritures", "Évolution", "Méga Stone", "Exploration", "Clé", "Récompense", "Autre"];
+    const categories = ["Soin", "Combat", "Attraper", "Nourritures", "Évolution", "Méga Stone", "Bonus Shiny", "Exploration", "Clé", "Récompense", "Autre"];
     const categoryOptions = categories.map(category => `<option value="${escapeHtml(category)}"${item.Categorie === category ? " selected" : ""}>${escapeHtml(category)}</option>`).join("");
     const effectRows = renderCreatorItemEffectRows(item.Effets || []);
 
@@ -49,6 +49,11 @@ function startItemCreator(existing) {
         <div class="input-group"><label for="dev-item-nom">Nom</label><input type="text" id="dev-item-nom" maxlength="60" value="${escapeHtml(item.Nom || "")}"></div>
         <div class="input-group"><label for="dev-item-description">Description</label><textarea id="dev-item-description" rows="3">${escapeHtml(item.Description || "")}</textarea></div>
         <div id="dev-item-food-config" class="${item.Categorie === "Nourritures" ? "" : "hidden"}">
+            <div id="dev-item-shiny-config" class="${item.Categorie === "Bonus Shiny" ? "" : "hidden"}">
+                <div class="input-group"><label for="dev-item-shiny-multiplier">Multiplicateur de chance Shiny</label><input type="number" id="dev-item-shiny-multiplier" min="1" step="0.1" value="${item.Categorie === "Bonus Shiny" ? Math.max(1, Number(item.ShinyChanceMultiplier) || 1) : 3}"></div>
+                <p class="dev-info-note">Exemple : ×3 transforme 1/4096 en environ 1/1365, et ×4 en 1/1024. Le bonus est actif dès que l'item est possédé.</p>
+            </div>
+
             <div class="input-group"><label for="dev-item-food-xp">XP donnée à l'animal</label><input type="number" id="dev-item-food-xp" min="1" step="1" value="${item.Categorie === "Nourritures" ? Math.max(1, Math.floor(Number(item.Valeur) || 1)) : 1}"></div>
             <p class="dev-info-note">La nourriture est utilisable en combat et hors combat. Elle donne cette quantité d'XP à l'animal sélectionné.</p>
         </div>
@@ -124,6 +129,7 @@ function startItemCreator(existing) {
         const mega = category === "Méga Stone";
         $("#dev-item-capture-config").classList.toggle("hidden", category !== "Attraper");
         $("#dev-item-food-config").classList.toggle("hidden", category !== "Nourritures");
+        $("#dev-item-shiny-config").classList.toggle("hidden", category !== "Bonus Shiny");
         $("#dev-item-mega").checked = mega || $("#dev-item-mega").checked;
         if (mega) {
             $("#dev-item-usable").checked = true;
@@ -192,6 +198,19 @@ function submitItemCreator(existing) {
         UtilisableHorsCombat: $("#dev-item-outside").checked,
         Consommable: $("#dev-item-consumable").checked
     };
+
+    if (category === "Bonus Shiny") {
+        const multiplier = Number($("#dev-item-shiny-multiplier").value);
+        if (!Number.isFinite(multiplier) || multiplier < 1) {
+            showToast("Multiplicateur invalide", "Le multiplicateur Shiny doit être supérieur ou égal à ×1.");
+            return;
+        }
+        item.ShinyChanceMultiplier = multiplier;
+        item.Effets = [];
+        item.Utilisable = false;
+        item.UtilisableHorsCombat = false;
+        item.Consommable = false;
+    }
 
     if (category === "Nourritures") {
         const foodXp = Number($("#dev-item-food-xp").value);
