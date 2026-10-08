@@ -20,7 +20,8 @@ const DEFAULT_GAME_SETTINGS = {
         allowPopupSkip: !0,
         escapeGeneration: 5,
         fastForwardToggle: !1,
-        gameSpeedPercent: 100
+        gameSpeedPercent: 100,
+        shinyChanceDenominator: 4096
     },
     keybinds: {
         up: ["arrowup", "w"],
@@ -103,6 +104,11 @@ function loadGameSettings() {
                     const p = Number(data.combat.gameSpeedPercent);
 
                     merged.combat.gameSpeedPercent = (Number.isFinite(p) && p >= 10 && p <= 1000) ? Math.round(p) : 100;
+                }
+
+                if ("shinyChanceDenominator" in data.combat) {
+                    const p = Number(data.combat.shinyChanceDenominator);
+                    merged.combat.shinyChanceDenominator = (Number.isFinite(p) && p >= 1 && p <= 4096) ? Math.floor(p) : 4096;
                 }
             }
 
