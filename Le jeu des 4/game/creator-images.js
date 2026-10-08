@@ -65,23 +65,13 @@ async function handleDevImageSelected(event) {
         return;
     }
 
-    let chemin = null;
+    let chemin = getDevImageRelativePath(file, context.subfolder);
 
-    try {
-        chemin = await copyDevImageToAssets(file, context.subfolder, nom);
-    } catch (error) {
-        console.warn("Copie immédiate de l'image impossible :", error);
-    }
-
-    if (!chemin) {
-        chemin = await fileToDataUrl(file);
-        if (file.size > 400 * 1024) {
-            showToast("Image volumineuse", "Aucun dossier disque disponible : l'image reste temporairement en data URL et sera migrée dès qu'un dossier sera lié.");
-        } else {
-            showToast("Image attachée", "L'image est conservée en mémoire avec un fallback local.");
-        }
+    if (chemin) {
+        showToast("Image référencée", "Le jeu conserve le chemin de l'image sans créer de copie.");
     } else {
-        showToast("Image enregistrée", "L'image est enregistrée dans assets/" + context.subfolder + " avec un chemin stable.");
+        chemin = await fileToDataUrl(file);
+        showToast("Image attachée", "Aucun chemin relatif exploitable : l'image reste temporairement en data URL.");
     }
 
     const input = $(context.inputSelector);
@@ -99,6 +89,17 @@ async function handleDevImageSelected(event) {
 
         preview.classList.remove("hidden");
     }
+}
+
+function getDevImageRelativePath(file, subfolder) {
+    const candidates = [file?.path, file?.webkitRelativePath].filter(Boolean).map(value => String(value).replace(/\\/g, "/"));
+    for (const candidate of candidates) {
+        const folder = String(subfolder).replace(/[^a-z0-9_-]/gi, "");
+        const match = candidate.match(new RegExp("(?:^|/)assets/" + folder + "/(.+)$", "i"));
+        if (match && match[1]) return "assets/" + subfolder + "/" + match[1];
+        if (/^assets\//i.test(candidate)) return candidate.replace(/^\/+/, "");
+    }
+    return null;
 }
 
 async function copyDevImageToAssets(file, subfolder, nom) {
@@ -133,6 +134,7 @@ async function copyDevImageToAssets(file, subfolder, nom) {
             await writable.close();
         }
 
+        const safeName = normalizeCreatorImageFilename(nom);
         return "assets/" + subfolder + "/" + safeName + "." + extension;
     } catch (error) {
         console.error("Copie de l'image vers assets impossible :", error);
@@ -153,22 +155,13 @@ async function exportCreatorImagesToAssets() {
     let exported = 0;
 
     const targets = [
-        ... (created.Personnages || []).map(p => ({
-            obj: p,
-            subfolder: "personnages"
-        })),
-        ... (created.Monstres || []).map(m => ({
-            obj: m,
-            subfolder: "monstres"
-        })),
-        ... (created.Animaux || []).map(a => ({
-            obj: a,
-            subfolder: "animaux"
-        }))
+        ... (created.Personnages || []).flatMap(p => [{ obj: p, subfolder: "personnages", field: "Image" }, { obj: p, subfolder: "personnages", field: "ImageShiny" }]),
+        ... (created.Monstres || []).map(m => ({ obj: m, subfolder: "monstres", field: "Image" })),
+        ... (created.Animaux || []).flatMap(a => [{ obj: a, subfolder: "animaux", field: "Image" }, { obj: a, subfolder: "animaux", field: "ImageShiny" }])
     ];
 
     for (const entry of targets) {
-        const image = entry.obj.Image;
+        const image = entry.obj[entry.field];
 
         if (!image || !String(image).startsWith("data:")) continue;
 
@@ -178,7 +171,7 @@ async function exportCreatorImagesToAssets() {
             const chemin = await copyDevImageToAssets(blob, entry.subfolder, entry.obj.Nom);
 
             if (chemin) {
-                entry.obj.Image = chemin;
+                entry.obj[entry.field] = chemin;
 
                 exported++;
             }
