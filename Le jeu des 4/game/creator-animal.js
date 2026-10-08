@@ -284,6 +284,7 @@ function submitAnimalCreator(existing, getSelectedAttacks = () => []) {
     const debuff = readAnimalCreatorAbility("debuff");
     const validateAbility = (ability, label, isDebuff) => {
         if (!ANIMAL_EFFECTS.includes(ability.Type)) return label + " : type invalide.";
+        if (!isDebuff && ["Brûlure", "Paralysie", "Sommeil", "Shocked"].includes(ability.Type)) return label + " : ce statut est réservé au debuff.";
         if (!Number.isFinite(ability.Valeur) || ability.Valeur < 0) return label + " : valeur invalide.";
         if ((ability.Type === "Dégâts") && isDebuff && ability.Valeur > 1) return label + " : un debuff de dégâts doit avoir une valeur comprise entre 0 et 1.";
         if (!Number.isInteger(ability.Tours) || ability.Tours < 1) return label + " : durée invalide.";
