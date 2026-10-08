@@ -276,9 +276,11 @@ function submitAnimalCreator(existing, getSelectedAttacks = () => []) {
     if (!Number.isInteger(level) || level < 1) return showToast("Niveau invalide", "Le niveau initial doit être supérieur ou égal à 1.");
 
     const energyType = $("#dev-a-energy-type").value.trim();
-    if (energyType && !(state.contenu?.Energies || []).some(energy => energy && energy.Nom === energyType)) {
-        return showToast("Énergie invalide", "Le type d'énergie sélectionné n'existe plus.");
-    }
+    const energyType2 = $("#dev-a-energy-type2").value.trim();
+    const energyNames = new Set((state.contenu?.Energies || []).filter(Boolean).map(energy => energy.Nom));
+    if (energyType && !energyNames.has(energyType)) return showToast("Énergie invalide", "Le type d'énergie sélectionné n'existe plus.");
+    if (energyType2 && !energyNames.has(energyType2)) return showToast("Énergie invalide", "Le second type d'énergie sélectionné n'existe plus.");
+    if (energyType2 && energyType2 === energyType) return showToast("Énergies identiques", "Les deux types d'énergie doivent être différents.");
 
     const buff = readAnimalCreatorAbility("buff");
     const debuff = readAnimalCreatorAbility("debuff");
