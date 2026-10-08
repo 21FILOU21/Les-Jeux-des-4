@@ -49,13 +49,12 @@ function startItemCreator(existing) {
         <div class="input-group"><label for="dev-item-nom">Nom</label><input type="text" id="dev-item-nom" maxlength="60" value="${escapeHtml(item.Nom || "")}"></div>
         <div class="input-group"><label for="dev-item-description">Description</label><textarea id="dev-item-description" rows="3">${escapeHtml(item.Description || "")}</textarea></div>
         <div id="dev-item-food-config" class="${item.Categorie === "Nourritures" ? "" : "hidden"}">
-            <div id="dev-item-shiny-config" class="${item.Categorie === "Bonus Shiny" ? "" : "hidden"}">
-                <div class="input-group"><label for="dev-item-shiny-multiplier">Multiplicateur de chance Shiny</label><input type="number" id="dev-item-shiny-multiplier" min="1" step="0.1" value="${item.Categorie === "Bonus Shiny" ? Math.max(1, Number(item.ShinyChanceMultiplier) || 1) : 3}"></div>
-                <p class="dev-info-note">Exemple : ×3 transforme 1/4096 en environ 1/1365, et ×4 en 1/1024. Le bonus est actif dès que l'item est possédé.</p>
-            </div>
-
             <div class="input-group"><label for="dev-item-food-xp">XP donnée à l'animal</label><input type="number" id="dev-item-food-xp" min="1" step="1" value="${item.Categorie === "Nourritures" ? Math.max(1, Math.floor(Number(item.Valeur) || 1)) : 1}"></div>
             <p class="dev-info-note">La nourriture est utilisable en combat et hors combat. Elle donne cette quantité d'XP à l'animal sélectionné.</p>
+        </div>
+        <div id="dev-item-shiny-config" class="${item.Categorie === "Bonus Shiny" ? "" : "hidden"}">
+            <div class="input-group"><label for="dev-item-shiny-multiplier">Multiplicateur de chance Shiny</label><input type="number" id="dev-item-shiny-multiplier" min="1" step="0.1" value="${item.Categorie === "Bonus Shiny" ? Math.max(1, Number(item.ShinyChanceMultiplier) || 1) : 3}"></div>
+            <p class="dev-info-note">Exemple : ×3 transforme 1/4096 en environ 1/1365, et ×4 en 1/1024. Le bonus est actif dès que l'item est possédé.</p>
         </div>
 
         <div class="input-group">
