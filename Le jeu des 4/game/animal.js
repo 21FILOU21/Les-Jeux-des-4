@@ -313,14 +313,14 @@ function getCapturedAnimalDefinition(instance) {
     return getAnimalDefinition(instance?.AnimalId || instance?.AnimalNom);
 }
 
-function addCapturedAnimal(definitionOrId, level = 1) {
+function addCapturedAnimal(definitionOrId, level = 1, shiny = false) {
     const team = getCapturedAnimals();
     if (team.length >= ANIMAL_MAX_TEAM_SIZE) return null;
 
     const definition = getAnimalDefinition(definitionOrId);
     if (!definition) return null;
 
-    const instance = createCapturedAnimal(definition, level);
+    const instance = createCapturedAnimal(definition, level, shiny);
     team.push(instance);
     updateSaveMemory();
     renderAnimalBattleSlots();
