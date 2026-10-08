@@ -215,7 +215,7 @@ function startAnimalCreator(existing) {
     });
 
     $("#dev-a-cancel").addEventListener("click", () => showDevCategoryMenu("Animaux"));
-    $("#dev-a-save").addEventListener("click", () => submitAnimalCreator(existing));
+    $("#dev-a-save").addEventListener("click", () => submitAnimalCreator(existing, () => attackSelection));
 }
 
 function readAnimalCreatorAbility(kind) {
@@ -231,7 +231,8 @@ function readAnimalCreatorAbility(kind) {
     };
 }
 
-function submitAnimalCreator(existing) {
+function submitAnimalCreator(existing, getSelectedAttacks = () => []) {
+    const attackSelection = Array.from(new Set(getSelectedAttacks().map(value => String(value || "").trim()).filter(Boolean))).slice(0, 4);
     const nom = $("#dev-a-nom").value.trim();
     if (!nom) return showToast("Animal invalide", "Le nom est obligatoire.");
 
