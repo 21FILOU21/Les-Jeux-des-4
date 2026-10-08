@@ -305,13 +305,16 @@ function canUseItem(item, context = "battle") {
     if (isMegaStoneItem(item)) {
         if (context !== "battle") return { ok: !1, reason: "La Méga Stone s'utilise pendant un combat." };
 
+        if (typeof canAnimalMegaEvolve === "function") {
+            const animalMega = canAnimalMegaEvolve(item);
+            if (animalMega.ok) return animalMega;
+        }
+
         if (typeof canMegaEvolve !== "function") {
             return { ok: !1, reason: "La Méga-Évolution n'est pas disponible." };
         }
 
-        const mega = canMegaEvolve(item);
-
-        return mega;
+        return canMegaEvolve(item);
     }
 
     const effects = resolveItemEffects(item);
@@ -509,23 +512,26 @@ async function useInventoryItem(itemId, context = "battle") {
         state.busy = !0;
         updateActionButtons();
 
-        const result = await activateMegaEvolution(item);
+        let result;
+        const animalMega = typeof canAnimalMegaEvolve === "function" ? canAnimalMegaEvolve(item) : { ok: false };
+        if (animalMega.ok && typeof activateAnimalMegaEvolution === "function") {
+            result = activateAnimalMegaEvolution(item);
+        } else {
+            result = await activateMegaEvolution(item);
+        }
 
         if (result && result.ok) {
+            if (item.Consommable !== !1) removeItemFromInventory(item.Id, 1);
             state.busy = !1;
             state.turn = "monster";
-
             updateBattleUI();
             updateActionButtons();
-
             await sleep(400);
-
             if (!state.battleOver) await monsterTurn();
         } else {
             state.busy = !1;
             updateActionButtons();
         }
-
         return;
     }
 
