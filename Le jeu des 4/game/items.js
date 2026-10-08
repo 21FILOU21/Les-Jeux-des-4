@@ -95,6 +95,12 @@ function normalizeItemDefinition(item) {
     clone.UtilisableHorsCombat = clone.UtilisableHorsCombat === !0;
 
     clone.Consommable = clone.Consommable !== !1;
+    if ("ShinyChanceMultiplier" in clone) {
+        const multiplier = Number(clone.ShinyChanceMultiplier);
+        clone.ShinyChanceMultiplier = Number.isFinite(multiplier) && multiplier >= 1 ? multiplier : 1;
+    } else {
+        clone.ShinyChanceMultiplier = 1;
+    }
 
     if (clone.MegaStone && typeof clone.MegaStone !== "object") clone.MegaStone = null;
 
@@ -280,6 +286,10 @@ function canUseItem(item, context = "battle") {
 
     if (context !== "battle" && item.UtilisableHorsCombat !== !0) {
         return { ok: !1, reason: "Cet item ne peut pas être utilisé hors combat." };
+    }
+
+    if (Number(item.ShinyChanceMultiplier) > 1) {
+        return { ok: false, reason: "Ce bonus Shiny est passif : il est actif dès que l'item est possédé." };
     }
 
     if (String(item.Categorie || "").toLowerCase() === "nourritures") {
