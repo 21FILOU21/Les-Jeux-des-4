@@ -278,9 +278,8 @@ function persistContenuBackup() {
         localStorage.setItem(LOCAL_CONTENT_KEY, JSON.stringify(contenuMemory));
     } catch (error) {
         console.warn("Backup de contenu localStorage impossible (quota). Le backup IndexedDB est utilisé.");
+        void persistContenuBackupToIndexedDb();
     }
-
-    void persistContenuBackupToIndexedDb();
 }
 
 async function persistContenuBackupToIndexedDb() {

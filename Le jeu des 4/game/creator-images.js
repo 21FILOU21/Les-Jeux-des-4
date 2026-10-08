@@ -102,6 +102,9 @@ async function handleDevImageSelected(event) {
 }
 
 async function copyDevImageToAssets(file, subfolder, nom) {
+    if (!saveDirectoryHandle && typeof loadSavedHandles === "function") {
+        await loadSavedHandles();
+    }
     if (!saveDirectoryHandle) return null;
 
     const granted = await verifySavedDirectoryPermission();
@@ -139,6 +142,10 @@ async function copyDevImageToAssets(file, subfolder, nom) {
 }
 
 async function exportCreatorImagesToAssets() {
+    if (!saveDirectoryHandle && typeof loadSavedHandles === "function") {
+        await loadSavedHandles();
+    }
+
     const created = getCreatorContenu();
 
     if (!created) return 0;
