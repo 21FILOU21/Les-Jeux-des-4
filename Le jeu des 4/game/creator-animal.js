@@ -308,8 +308,6 @@ function submitAnimalCreator(existing, getSelectedAttacks = () => []) {
     for (const shinyPath of [imageShiny]) {
         if (shinyPath && !/^data:image\/(png|jpeg|jpg);/i.test(shinyPath) && !/\.(png|jpe?g)(?:$|\?)/i.test(shinyPath)) return showToast("Image invalide", "L'image Shiny doit être un PNG ou JPG.");
     }
-    const energyType2 = $("#dev-a-energy-type2").value.trim();
-    if (energyType2 && energyType2 === energyType) return showToast("Énergies identiques", "Les deux types d'énergie doivent être différents.");
     if (attackSelection.length > 4) return showToast("Attaques invalides", "Un animal ne peut avoir que 4 attaques.");
     const validAttackNames = new Set((state.contenu?.Attaques || []).filter(Boolean).map(a => a.Nom));
     if (attackSelection.some(name => !validAttackNames.has(name))) return showToast("Attaque invalide", "Une attaque sélectionnée n'existe plus.");
