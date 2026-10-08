@@ -195,7 +195,8 @@ function submitItemCreator(existing) {
         QuantiteMax: Math.max(1, lireIntInput("#dev-item-max", 999)),
         Utilisable: $("#dev-item-usable").checked,
         UtilisableHorsCombat: $("#dev-item-outside").checked,
-        Consommable: $("#dev-item-consumable").checked
+        Consommable: $("#dev-item-consumable").checked,
+        ShinyChanceMultiplier: 1
     };
 
     if (category === "Bonus Shiny") {
