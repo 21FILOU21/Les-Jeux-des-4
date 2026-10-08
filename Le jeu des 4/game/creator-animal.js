@@ -128,7 +128,7 @@ function startAnimalCreator(existing) {
         '<div class="input-group"><label for="dev-a-evolution-target">Animal cible</label><select id="dev-a-evolution-target"></select></div>' +
         '<div class="input-group"><label for="dev-a-evolution-level">Niveau requis</label><input type="number" id="dev-a-evolution-level" min="1" step="1" value="' + (animal.Evolution?.NiveauRequis || 16) + '"></div></div>' +
         '<div class="dev-section-title">Méga-Évolution</div>' +
-        '<div class="input-group"><label for="dev-a-mega-enabled">Méga-Évolution</label><select id="dev-a-mega-enabled"><option value="0"' + (animal.MegaEvolution ? "" : " selected") + '>0. Aucune</option><option value="1"' + (animal.MegaEvolution ? "" : " selected") + '>1. Méga-Évolution configurée</option></select></div>' +
+        '<div class="input-group"><label for="dev-a-mega-enabled">Méga-Évolution</label><select id="dev-a-mega-enabled"><option value="0"' + (animal.MegaEvolution ? "" : " selected") + '>0. Aucune</option><option value="1"' + (animal.MegaEvolution ? " selected" : "") + '>1. Méga-Évolution configurée</option></select></div>' +
         '<div id="dev-a-mega-config" class="' + (animal.MegaEvolution ? "" : "hidden") + '">' +
         '<div class="input-group"><label for="dev-a-mega-target">Animal Méga cible</label><select id="dev-a-mega-target"></select></div>' +
         '<div class="input-group"><label for="dev-a-mega-item">Item requis</label><select id="dev-a-mega-item"></select></div></div>' +
