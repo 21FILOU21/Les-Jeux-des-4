@@ -10,6 +10,7 @@
 const ANIMAL_MAX_TEAM_SIZE = 6;
 const ANIMAL_ENCOUNTER_CHANCE = 0.10;
 const ANIMAL_DEFAULT_LEVEL = 1;
+const ANIMAL_DEFAULT_SHINY_CHANCE = 4096;
 const ANIMAL_RARITIES = ["Commun", "Rare", "Épique", "Mythique"];
 const ANIMAL_ACTIVATIONS = [
     "Sur attaque",
@@ -51,6 +52,7 @@ function normalizeAnimalAbility(raw, fallbackType, fallbackValue, fallbackTurns,
         Tours: Math.max(1, Math.floor(Number(source.Tours ?? fallbackTurns) || 1)),
         Activation: ANIMAL_ACTIVATIONS.includes(source.Activation) ? source.Activation : (ANIMAL_ACTIVATIONS.includes(fallbackActivation) ? fallbackActivation : "Sur attaque"),
         Cooldown: Math.max(0, Math.floor(Number(source.Cooldown ?? fallbackCooldown) || 0)),
+        ChanceActivation: Math.max(0, Math.min(100, Number.isFinite(Number(source.ChanceActivation)) ? Number(source.ChanceActivation) : 100)),
         Stackable: source.Stackable === true || (source.Stackable === undefined && fallbackStackable === true)
     };
 }
@@ -79,7 +81,13 @@ function normalizeAnimalDefinition(animal) {
     out.Id = String(out.Id || animalSlug(out.Nom) || animalUuid()).trim();
     out.Nom = String(out.Nom || "").trim();
     out.Description = String(out.Description || "");
-    out.Image = String(out.Image || "");
+    out.Image = String(out.Image || "").trim();
+    out.ImageShiny = String(out.ImageShiny || "").trim();
+    out.AUneImageShiny = out.AUneImageShiny === true && !!out.ImageShiny;
+    out.TypeEnergie2 = String(out.TypeEnergie2 || "").trim();
+    out.Attaques = Array.from(new Set((Array.isArray(out.Attaques) ? out.Attaques : []).map(value => String(value || "").trim()).filter(Boolean))).slice(0, 4);
+    out.Evolution = out.Evolution && typeof out.Evolution === "object" ? { Cible: String(out.Evolution.Cible || "").trim(), NiveauRequis: Math.max(1, Math.floor(Number(out.Evolution.NiveauRequis) || 16)) } : null;
+    out.MegaEvolution = out.MegaEvolution && typeof out.MegaEvolution === "object" ? { Cible: String(out.MegaEvolution.Cible || "").trim(), ItemId: String(out.MegaEvolution.ItemId || out.MegaEvolution.StoneId || "").trim() } : null;
     out.Vie = Math.max(1, Number(out.Vie) || 1);
     out.Puissance = Math.max(0, Number(out.Puissance) || 0);
     out.Armure = Math.max(0, Number(out.Armure) || 0);
@@ -109,6 +117,7 @@ function normalizeAnimalDefinition(animal) {
     out.Tours = Math.max(oldBuff.Tours, oldDebuff.Tours);
     out.TypeActivation = oldBuff.Activation;
     out.CooldownActivation = Math.max(oldBuff.Cooldown, oldDebuff.Cooldown);
+    out.ChanceActivation = oldBuff.ChanceActivation;
     out.Stackable = oldBuff.Stackable || oldDebuff.Stackable;
 
     return out;
@@ -142,8 +151,40 @@ function getAnimalDefinition(idOrName) {
     ) || null;
 }
 
-function getAnimalImagePath(animalOrDefinition) {
-    return typeof animalOrDefinition?.Image === "string" ? animalOrDefinition.Image.trim() : "";
+function getAnimalImagePath(animalOrDefinition, shiny = false) {
+    if (!animalOrDefinition) return "";
+    const definition = animalOrDefinition.definition || animalOrDefinition;
+    if (shiny && definition.AUneImageShiny && typeof definition.ImageShiny === "string" && definition.ImageShiny.trim()) return definition.ImageShiny.trim();
+    return typeof definition.Image === "string" ? definition.Image.trim() : "";
+}
+
+function getAnimalDisplayImagePath(instance, definition = null) {
+    const resolved = definition || instance?.definition || getCapturedAnimalDefinition(instance);
+    return getAnimalImagePath(resolved, instance?.Shiny === true);
+}
+
+function getAnimalShinyDenominator() {
+    const configured = Number(gameSettings?.combat?.shinyChanceDenominator);
+    return Math.max(1, Math.min(4096, Number.isFinite(configured) ? Math.floor(configured) : ANIMAL_DEFAULT_SHINY_CHANCE));
+}
+
+function getAnimalShinyMultiplier() {
+    if (typeof getInventoryItemDefinitions !== "function" || typeof getItemQuantity !== "function") return 1;
+    let multiplier = 1;
+    for (const item of getInventoryItemDefinitions()) {
+        const bonus = Number(item?.ShinyChanceMultiplier);
+        if (!Number.isFinite(bonus) || bonus <= 0 || getItemQuantity(item.Id) <= 0) continue;
+        multiplier *= bonus;
+    }
+    return Math.max(1, multiplier);
+}
+
+function getAnimalEffectiveShinyDenominator() {
+    return Math.max(1, Math.min(4096, Math.floor(getAnimalShinyDenominator() / getAnimalShinyMultiplier())));
+}
+
+function rollAnimalShiny() {
+    return Math.random() < (1 / getAnimalEffectiveShinyDenominator());
 }
 
 function getAnimalAbility(definition, kind) {
@@ -181,15 +222,12 @@ function getAnimalEffectiveValue(definition, instance, kind) {
     return Math.max(0, Math.round(value * 1000) / 1000);
 }
 
-function createCapturedAnimal(definition, level = null) {
+function createCapturedAnimal(definition, level = null, shiny = false) {
     const animal = normalizeAnimalDefinition(definition);
     return {
-        Id: animalUuid(),
-        AnimalId: animal.Id,
-        AnimalNom: animal.Nom,
-        Niveau: Math.max(1, Math.floor(Number(level) || animal.NiveauInitial || 1)),
-        XP: 0,
-        Maitre: animal.Maitre || "",
+        Id: animalUuid(), AnimalId: animal.Id, AnimalNom: animal.Nom,
+        Niveau: Math.max(1, Math.floor(Number(level) || animal.NiveauInitial || 1)), XP: 0,
+        Maitre: animal.Maitre || "", Shiny: shiny === true
     };
 }
 
@@ -237,7 +275,8 @@ function ensureAnimalCollection() {
             AnimalNom: definition.Nom,
             Niveau: Math.max(1, Math.floor(Number(raw.Niveau) || definition.NiveauInitial || 1)),
             XP: Math.max(0, Number(raw.XP) || 0),
-            Maitre: String(raw.Maitre ?? definition.Maitre ?? "")
+            Maitre: String(raw.Maitre ?? definition.Maitre ?? ""),
+            Shiny: raw.Shiny === true
         };
 
         normalizeAnimalProgression(instance);
@@ -309,7 +348,7 @@ function rollAnimalEncounterAtBattleStart(options = {}) {
     if (!definition) return null;
 
     const level = Math.max(1, Math.floor(Number(definition.NiveauInitial) || ANIMAL_DEFAULT_LEVEL));
-    return createAnimalCombatant(definition, level);
+    return createAnimalCombatant(definition, level, { shiny: rollAnimalShiny() });
 }
 
 function buildAnimalWheels(definition, level) {
@@ -319,7 +358,7 @@ function buildAnimalWheels(definition, level) {
     return [{ min, max }];
 }
 
-function createAnimalCombatant(definition, level = 1) {
+function createAnimalCombatant(definition, level = 1, options = {}) {
     const animal = normalizeAnimalDefinition(definition);
     const lv = Math.max(1, Math.floor(Number(level) || 1));
     const scale = Math.pow(1.08, lv - 1);
@@ -344,16 +383,17 @@ function createAnimalCombatant(definition, level = 1) {
         statusEffects: [],
         items: { force: 0, bandage: 0, armor: 0, totem: 0 },
         energyType: animal.TypeEnergie || "Animal",
-        energyTypes: animal.TypeEnergie ? [animal.TypeEnergie] : ["Animal"],
+        energyTypes: [animal.TypeEnergie, animal.TypeEnergie2].filter(Boolean).length ? [...new Set([animal.TypeEnergie, animal.TypeEnergie2].filter(Boolean))] : ["Animal"],
         energy: animal.MaxEnergie,
         maxEnergy: animal.MaxEnergie,
         wheels,
         minRoulette: wheels[0].min,
         maxRoulette: wheels[0].max,
         nombreRoulette: wheels.length,
-        attacks: [],
+        attacks: animal.Attaques.slice(0, 4),
         Vitesse: lv,
-        Image: getAnimalImagePath(animal),
+        Shiny: options.shiny === true,
+        Image: getAnimalImagePath(animal, options.shiny === true),
         rarete: animal.Rarete,
         animalStatuses: [],
         buff: animal.Buff,
@@ -423,6 +463,9 @@ function applyAnimalAbility(instance, kind, target, activation, context) {
     const cooldown = Math.max(0, Math.floor(Number(instance.cooldowns?.[kind]) || 0));
     if (cooldown > 0) return false;
 
+    const chanceActivation = Math.max(0, Math.min(100, Number.isFinite(Number(ability.ChanceActivation)) ? Number(ability.ChanceActivation) : 100));
+    if (Math.random() * 100 >= chanceActivation) return false;
+
     const value = getAnimalEffectiveValue(definition, instance, kind);
     if (value <= 0) return false;
 
@@ -446,13 +489,17 @@ function applyAnimalAbility(instance, kind, target, activation, context) {
     } else if (normalized === "armure") {
         if (typeof addTimedEffect === "function") addTimedEffect(target, "armor", kind === "buff" ? value : -value, ability.Tours, metadata);
     } else if (normalized === "energie" || normalized === "energy") {
-        if (target === "player") state.playerEnergy = Math.min(state.playerMaxEnergy, state.playerEnergy + value);
-        else target.energy = Math.min(target.maxEnergy || 0, (Number(target.energy) || 0) + value);
+        if (kind === "buff") {
+            if (target === "player") state.playerEnergy = Math.min(state.playerMaxEnergy, state.playerEnergy + value);
+            else target.energy = Math.min(target.maxEnergy || 0, (Number(target.energy) || 0) + value);
+        } else {
+            if (target === "player") state.playerEnergy = Math.max(0, state.playerEnergy - value);
+            else target.energy = Math.max(0, (Number(target.energy) || 0) - value);
+        }
     } else if (normalized === "degats" || normalized === "damage") {
         if (typeof addTimedDamageMultiplier === "function") {
-            const multiplier = Math.max(0, value);
-            const effectiveMultiplier = kind === "buff" ? multiplier : multiplier;
-            addTimedDamageMultiplier(target, effectiveMultiplier, ability.Tours, metadata, ability.Stackable);
+            const multiplier = kind === "buff" ? Math.max(0, value) : Math.max(0, Math.min(1, value));
+            addTimedDamageMultiplier(target, multiplier, ability.Tours, metadata, ability.Stackable);
         }
     } else {
         return false;
@@ -587,7 +634,7 @@ function renderAnimalBattleSlots() {
 
         if (instance) {
             const definition = getCapturedAnimalDefinition(instance) || {};
-            const imagePath = getAnimalImagePath(definition);
+            const imagePath = getAnimalDisplayImagePath(instance, definition);
             const image = imagePath
                 ? '<img src="' + escapeHtml(imagePath) + '" alt="' + escapeHtml(definition.Nom || "Animal") + '">'
                 : '<span class="animal-slot-placeholder">🐾</span>';
@@ -669,8 +716,8 @@ function renderCreaturesMenu() {
         button.type = "button";
         button.className = "creature-card" + (instance.Id === state.selectedAnimalId ? " selected" : "");
         button.innerHTML =
-            (getAnimalImagePath(definition)
-                ? '<img src="' + escapeHtml(getAnimalImagePath(definition)) + '" alt="">'
+            (getAnimalDisplayImagePath(instance, definition)
+                ? '<img src="' + escapeHtml(getAnimalDisplayImagePath(instance, definition)) + '" alt="">'
                 : '<span class="creature-placeholder">🐾</span>') +
             '<span class="creature-card-text"><strong>' + escapeHtml(definition.Nom) + '</strong>' +
             '<small>' + escapeHtml(definition.Rarete) + ' · Niveau ' + escapeHtml(String(instance.Niveau)) + '</small></span>';
@@ -693,11 +740,11 @@ function renderCreaturesMenu() {
 
     details.innerHTML =
         '<div class="creature-detail-head">' +
-        (getAnimalImagePath(definition) ? '<img src="' + escapeHtml(getAnimalImagePath(definition)) + '" alt="">' : '<span class="creature-placeholder large">🐾</span>') +
+        (getAnimalDisplayImagePath(selected, definition) ? '<img src="' + escapeHtml(getAnimalDisplayImagePath(selected, definition)) + '" alt="">' : '<span class="creature-placeholder large">🐾</span>') +
         '<div><h3>' + escapeHtml(definition.Nom) + '</h3><p>' + escapeHtml(definition.Rarete) + ' · Niveau ' + escapeHtml(String(selected.Niveau)) + '</p></div></div>' +
         '<p class="creature-description">' + escapeHtml(definition.Description || "Aucune description.") + '</p>' +
         '<div class="creature-stat-grid">' +
-        '<span>Énergie</span><strong>' + escapeHtml(definition.TypeEnergie || "—") + '</strong>' +
+        '<span>Énergie</span><strong>' + escapeHtml([definition.TypeEnergie, definition.TypeEnergie2].filter(Boolean).join(" / ") || "—") + '</strong>' +
         '<span>Vie</span><strong>' + escapeHtml(String(definition.Vie)) + '</strong>' +
         '<span>Puissance</span><strong>' + escapeHtml(String(definition.Puissance)) + '</strong>' +
         '<span>Armure</span><strong>' + escapeHtml(String(definition.Armure)) + '</strong>' +
@@ -706,8 +753,8 @@ function renderCreaturesMenu() {
         '<span>Maître</span><strong>' + escapeHtml(definition.Maitre || "Aucun") + '</strong>' +
         '<span>Bonus maître</span><strong>' + escapeHtml(String(definition.AugmentationMaitre || 0)) + '</strong>' +
         '</div>' +
-        (buff.Type ? '<div class="creature-ability"><h4>Buff</h4><p>' + escapeHtml(buff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "buff"))) + ' · ' + escapeHtml(String(buff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(buff.Activation) + ' · Cooldown : ' + escapeHtml(String(buff.Cooldown)) + ' · Stackable : ' + (buff.Stackable ? "Oui" : "Non") + '</p></div>' : '') +
-        (debuff.Type ? '<div class="creature-ability"><h4>Debuff</h4><p>' + escapeHtml(debuff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "debuff"))) + ' · ' + escapeHtml(String(debuff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(debuff.Activation) + ' · Cooldown : ' + escapeHtml(String(debuff.Cooldown)) + ' · Stackable : ' + (debuff.Stackable ? "Oui" : "Non") + '</p></div>' : '');
+        (buff.Type ? '<div class="creature-ability"><h4>Buff</h4><p>' + escapeHtml(buff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "buff"))) + ' · ' + escapeHtml(String(buff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(buff.Activation) + ' · Chance : ' + escapeHtml(String(buff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(buff.Cooldown)) + ' · Stackable : ' + (buff.Stackable ? "Oui" : "Non") + '</p></div>' : '') +
+        (debuff.Type ? '<div class="creature-ability"><h4>Debuff</h4><p>' + escapeHtml(debuff.Type) + ' · Valeur effective ' + escapeHtml(String(getAnimalEffectiveValue(definition, selected, "debuff"))) + ' · ' + escapeHtml(String(debuff.Tours)) + ' tour(s)</p><p>Activation : ' + escapeHtml(debuff.Activation) + ' · Chance : ' + escapeHtml(String(debuff.ChanceActivation)) + '% · Cooldown : ' + escapeHtml(String(debuff.Cooldown)) + ' · Stackable : ' + (debuff.Stackable ? "Oui" : "Non") + '</p></div>' : '');
 }
 
 async function animateAnimalXpGain(amount, animalId = null) {
