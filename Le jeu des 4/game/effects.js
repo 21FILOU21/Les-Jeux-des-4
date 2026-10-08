@@ -350,7 +350,7 @@ function addTimedEffect(target, kind, value, turns, metadata = null) {
 
     const effects = target === "player" ? state.playerStatusEffects : target.statusEffects;
 
-    const remainingTurns = target !== "player" && kind === "power" ? duration + 1 : duration;
+    const remainingTurns = target !== "player" && kind === "power" && !metadata?.sourceAnimalId ? duration + 1 : duration;
 
     fireVfxFor(vfxAttachedTo(state._vfxCarrier || null), "onStatut", { side: target === "player" ? "player" : "enemy", target });
 
