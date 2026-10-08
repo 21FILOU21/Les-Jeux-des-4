@@ -577,7 +577,7 @@ function captureBattleAnimal(item) {
         const definition = getAnimalDefinition(target.definitionId || target.animalDefinition?.Id);
         if (!definition) return { ok: false, reason: "Définition animale introuvable." };
 
-        const instance = addCapturedAnimal(definition, target.level);
+        const instance = addCapturedAnimal(definition, target.level, target.Shiny === true);
         if (!instance) return { ok: false, reason: "Impossible d'ajouter l'Animal à l'équipe." };
 
         target.hp = 0;
