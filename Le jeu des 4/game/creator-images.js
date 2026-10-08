@@ -8,6 +8,15 @@
 
 let devImagePickerContext = null;
 
+function normalizeCreatorImageFilename(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "personnage";
+}
+
 function openDevImagePicker(inputSelector, previewSelector, subfolder, nomInputSelector) {
     devImagePickerContext = {
         inputSelector,
@@ -56,12 +65,23 @@ async function handleDevImageSelected(event) {
         return;
     }
 
-    const chemin = await fileToDataUrl(file);
+    let chemin = null;
 
-    if (file.size > 400 * 1024) {
-        showToast("Image volumineuse", "L'image est stockée dans la sauvegarde (data URL). Les images de plus de 400 Ko alourdissent la sauvegarde.");
+    try {
+        chemin = await copyDevImageToAssets(file, context.subfolder, nom);
+    } catch (error) {
+        console.warn("Copie immédiate de l'image impossible :", error);
+    }
+
+    if (!chemin) {
+        chemin = await fileToDataUrl(file);
+        if (file.size > 400 * 1024) {
+            showToast("Image volumineuse", "Aucun dossier disque disponible : l'image reste temporairement en data URL et sera migrée dès qu'un dossier sera lié.");
+        } else {
+            showToast("Image attachée", "L'image est conservée en mémoire avec un fallback local.");
+        }
     } else {
-        showToast("Image attachée", `L'image est enregistrée avec ${nom} (aucune écriture disque — utilise « Écrire sur le disque » pour exporter).`);
+        showToast("Image enregistrée", "L'image est enregistrée dans assets/" + context.subfolder + " avec un chemin stable.");
     }
 
     const input = $(context.inputSelector);
@@ -110,7 +130,7 @@ async function copyDevImageToAssets(file, subfolder, nom) {
             await writable.close();
         }
 
-        return "assets/" + subfolder + "/" + nom + "." + extension;
+        return "assets/" + subfolder + "/" + safeName + "." + extension;
     } catch (error) {
         console.error("Copie de l'image vers assets impossible :", error);
 

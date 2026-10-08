@@ -320,11 +320,20 @@ async function sauvegarder(slotForce = null) {
             if (!confirmer) return;
         }
 
+        if (typeof exportCreatorImagesToAssets === "function") {
+            const exportedImages = await exportCreatorImagesToAssets();
+            if (exportedImages > 0 && typeof saveCreatorContenu === "function") saveCreatorContenu();
+        }
+
         saveMemoryData.sauvegardes[slot - 1] = createSaveData(finalName);
 
         updateSaveLocationInfo();
 
         updateSaveMemory();
+
+        if ((saveDirectoryHandle || currentContentFileHandle) && typeof ecrireFichierContenu === "function") {
+            await ecrireFichierContenu();
+        }
 
         selectedSaveSlot = slot;
 

@@ -193,6 +193,33 @@ function createCapturedAnimal(definition, level = null) {
     };
 }
 
+function normalizeAnimalProgression(instance) {
+    if (!instance || typeof instance !== "object") return 0;
+    let level = Math.max(1, Math.floor(Number(instance.Niveau) || 1));
+    let xp = Number(instance.XP);
+    if (!Number.isFinite(xp) || xp < 0) xp = 0;
+    let levelsGained = 0;
+    const MAX_NORMALIZATION_LEVELS = 100000;
+    while (xp >= animalXpRequired(level) && level < Number.MAX_SAFE_INTEGER && levelsGained < MAX_NORMALIZATION_LEVELS) {
+        xp -= animalXpRequired(level);
+        level++;
+        levelsGained++;
+    }
+    if (xp >= animalXpRequired(level)) xp = Math.max(0, animalXpRequired(level) - 1);
+    instance.Niveau = level;
+    instance.XP = Math.max(0, xp);
+    return levelsGained;
+}
+
+function applyAnimalXp(instance, amount) {
+    if (!instance || typeof instance !== "object") return 0;
+    const value = Math.max(0, Number(amount) || 0);
+    normalizeAnimalProgression(instance);
+    if (value <= 0) return 0;
+    instance.XP += value;
+    return normalizeAnimalProgression(instance);
+}
+
 function ensureAnimalCollection() {
     if (!Array.isArray(globalState.animaux)) globalState.animaux = [];
 
@@ -212,6 +239,8 @@ function ensureAnimalCollection() {
             XP: Math.max(0, Number(raw.XP) || 0),
             Maitre: String(raw.Maitre ?? definition.Maitre ?? "")
         };
+
+        normalizeAnimalProgression(instance);
 
         used.add(instance.Id);
         normalized.push(instance);
@@ -684,56 +713,27 @@ function renderCreaturesMenu() {
 async function animateAnimalXpGain(amount, animalId = null) {
     const value = Math.max(0, Math.round(Number(amount) || 0));
     if (value <= 0) return [];
-
     const animals = getCapturedAnimals();
-    const targets = animalId
-        ? animals.filter(animal => String(animal.Id) === String(animalId))
-        : animals;
-
+    const targets = animalId ? animals.filter(animal => String(animal.Id) === String(animalId)) : animals;
     if (targets.length === 0) return [];
 
-    const results = targets.map(instance => ({
-        instance,
-        remaining: value,
-        levelsGained: 0
-    }));
+    const results = targets.map(instance => {
+        const beforeLevel = instance.Niveau;
+        const beforeXp = instance.XP;
+        const levelsGained = applyAnimalXp(instance, value);
+        return { instance, value, beforeLevel, beforeXp, levelsGained };
+    });
 
-    
-
+    renderAnimalBattleSlots();
     for (const result of results) {
-        const instance = result.instance;
-        while (result.remaining > 0) {
-            const required = animalXpRequired(instance.Niveau);
-            const needed = Math.max(1, required - Math.max(0, Number(instance.XP) || 0));
-            const chunk = Math.min(result.remaining, needed);
-            const steps = Math.min(30, Math.max(1, chunk));
-            const stepValue = Math.max(1, Math.ceil(chunk / steps));
-
-            let progressed = 0;
-            while (progressed < chunk) {
-                const step = Math.min(stepValue, chunk - progressed);
-                instance.XP = Math.max(0, Number(instance.XP) || 0) + step;
-                progressed += step;
-                result.remaining -= step;
-                renderAnimalBattleSlots();
-                await sleep(30);
-            }
-
-            if (instance.XP >= required) {
-                instance.XP -= required;
-                instance.Niveau++;
-                result.levelsGained++;
-                renderAnimalBattleSlots();
-                await sleep(450);
-            }
-        }
+        await sleep(result.levelsGained > 0 ? 450 : 120);
+        renderAnimalBattleSlots();
     }
 
     updateSaveMemory();
     renderAnimalBattleSlots();
     return results;
 }
-
 function gainAnimalXp(amount, animalId = null) {
     const value = Math.max(0, Number(amount) || 0);
     if (value <= 0) return null;
@@ -746,14 +746,7 @@ function gainAnimalXp(amount, animalId = null) {
     if (!instance) return null;
 
     state.selectedAnimalId = instance.Id;
-    instance.XP = Math.max(0, Number(instance.XP) || 0) + value;
-
-    let levelsGained = 0;
-    while (instance.XP >= animalXpRequired(instance.Niveau)) {
-        instance.XP -= animalXpRequired(instance.Niveau);
-        instance.Niveau++;
-        levelsGained++;
-    }
+    const levelsGained = applyAnimalXp(instance, value);
 
     updateSaveMemory();
     renderAnimalBattleSlots();

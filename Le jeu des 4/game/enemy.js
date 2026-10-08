@@ -890,10 +890,13 @@ async function awardPendingAnimalXp(totalXp = 0) {
     const shareXp = typeof getItemQuantity === "function"
         && getItemQuantity("partage-experiences") > 0;
 
+    /* Le montant est le total final du combat. Sans partage d'expériences,
+       l'animal verrouillé au premier KO reçoit ce montant ; avec l'objet,
+       chaque animal capturé reçoit exactement le même montant. */
     if (shareXp && typeof animateAnimalXpGain === "function") {
         await animateAnimalXpGain(amount);
     } else if (typeof gainAnimalXp === "function") {
-        gainAnimalXp(amount, state.pendingAnimalXpTargetId || state.selectedAnimalId);
+        gainAnimalXp(amount, state.pendingAnimalXpTargetId || null);
     }
 
     state.pendingAnimalXpTargetId = null;

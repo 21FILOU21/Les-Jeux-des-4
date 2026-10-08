@@ -25,7 +25,7 @@ let currentContentFileHandle = null;
 
 const SAVE_DB_NAME = "MonsterGameSaveDB";
 
-const SAVE_DB_VERSION = 2;
+const SAVE_DB_VERSION = 3;
 
 const SAVE_DB_STORE = "handles";
 
@@ -244,19 +244,32 @@ function absorbLegacyContenu(data) {
 }
 
 /* Backup dédié du contenu (mode sans dossier lié). */
-function loadContenuBackup() {
+async function loadContenuBackup() {
     try {
         const raw = localStorage.getItem(LOCAL_CONTENT_KEY);
-
-        if (!raw) return;
-
-        const data = JSON.parse(raw);
-
-        if (data && typeof data === "object" && !Array.isArray(data)) {
-            contenuMemory = normalizeContenuData(data);
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (data && typeof data === "object" && !Array.isArray(data)) {
+                contenuMemory = normalizeContenuData(data);
+                return;
+            }
         }
     } catch (error) {
-        console.error("Erreur lors du chargement du backup de contenu :", error);
+        console.warn("Lecture du backup contenu localStorage impossible :", error);
+    }
+
+    try {
+        const db = await openSaveDatabase();
+        const backup = await new Promise((resolve, reject) => {
+            const transaction = db.transaction("contentBackup", "readonly");
+            const request = transaction.objectStore("contentBackup").get("latest");
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+        db.close();
+        if (backup?.contenu && typeof backup.contenu === "object") contenuMemory = normalizeContenuData(backup.contenu);
+    } catch (error) {
+        console.error("Erreur lors du chargement du backup IndexedDB de contenu :", error);
     }
 }
 
@@ -264,7 +277,27 @@ function persistContenuBackup() {
     try {
         localStorage.setItem(LOCAL_CONTENT_KEY, JSON.stringify(contenuMemory));
     } catch (error) {
-        console.warn("Backup de contenu impossible (quota) : lie un dossier de jeu ou utilise « Écrire sur le disque » pour préserver le contenu et les images.");
+        console.warn("Backup de contenu localStorage impossible (quota). Le backup IndexedDB est utilisé.");
+    }
+
+    void persistContenuBackupToIndexedDb();
+}
+
+async function persistContenuBackupToIndexedDb() {
+    try {
+        const db = await openSaveDatabase();
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction("contentBackup", "readwrite");
+            transaction.objectStore("contentBackup").put({
+                updatedAt: Date.now(),
+                contenu: structuredClone(contenuMemory)
+            }, "latest");
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+        });
+        db.close();
+    } catch (error) {
+        console.warn("Backup de contenu IndexedDB impossible :", error);
     }
 }
 
@@ -291,6 +324,10 @@ function openSaveDatabase() {
 
             if (!db.objectStoreNames.contains("mapAssets")) {
                 db.createObjectStore("mapAssets");
+            }
+
+            if (!db.objectStoreNames.contains("contentBackup")) {
+                db.createObjectStore("contentBackup");
             }
         };
 
@@ -424,7 +461,7 @@ function loadSaveMemoryBackup() {
 
         absorbLegacyContenu(saveMemoryData);
 
-        loadContenuBackup();
+        void loadContenuBackup();
 
         saveJsonString = JSON.stringify(saveMemoryData, null, 4);
 
@@ -491,6 +528,14 @@ async function autoSaveGame() {
     try {
         saveMemoryData.autoSave = createSaveData("Sauvegarde automatique");
         updateSaveMemory();
+
+        if ((saveDirectoryHandle || currentContentFileHandle) && typeof ecrireFichierContenu === "function") {
+            try {
+                await ecrireFichierContenu();
+            } catch (error) {
+                console.warn("Écriture automatique de Contenu.json impossible :", error);
+            }
+        }
     } catch (error) {
         console.error("Erreur de sauvegarde automatique :", error);
     } finally {
@@ -906,6 +951,10 @@ async function ecrireFichierSauvegarde(data = saveMemoryData) {
 async function syncSaveFileToDisk() {
     try {
         await ecrireFichierSauvegarde();
+
+        if ((saveDirectoryHandle || currentContentFileHandle) && typeof ecrireFichierContenu === "function") {
+            await ecrireFichierContenu();
+        }
 
         return !0;
     } catch (error) {

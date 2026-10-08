@@ -861,7 +861,7 @@
                             "totem": 0
                         },
                         "Vitesse": 0,
-                        "Image": "assets/monstres/edouard.png",
+                        "Image": "assets/monstres/Édouard.png",
                         "rarete": "Commun"
                     },
                     {
@@ -955,7 +955,7 @@
                             "totem": 0
                         },
                         "Vitesse": 0,
-                        "Image": "assets/monstres/edouard.png",
+                        "Image": "assets/monstres/Édouard.png",
                         "rarete": "Commun"
                     }
                 ],
